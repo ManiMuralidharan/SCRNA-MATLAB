@@ -5,7 +5,7 @@ this code in MATLAB step-by-step.
 1. Setting up Your Environment
 
 Data Location:
-Ensure that your scRNA-seq data is located in the specified folder C:\Users\mmani3\Desktop\PD-L1.
+Ensure that your scRNA-seq data is located in the specified folder C:\Users\mmani\Desktop\PD-L1.
 Within that folder, you should have four subfolders: BP_iso, BP_PD_1, BS_iso, and BS_PD_1.
 Each of these subfolders should contain the files barcodes.tsv, features.tsv, and matrix.mtx.
 MATLAB Working Directory:
