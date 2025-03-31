@@ -1,0 +1,145 @@
+% Set the path for your data
+data_path = 'C:\Users\mmani\Desktop\PD-L1';  % Corrected path
+
+% List of folders with updated names (assuming similar changes were made to all folders)
+folders = {'BP_iso', 'BP_PD_1', 'BS_iso', 'BS_PD_1'};
+
+% Loop through each folder and load the unzipped files
+for i = 1:length(folders)
+    folder = folders{i};
+    
+    % Set the file paths for the unzipped files
+    barcodes_file = fullfile(data_path, folder, 'barcodes.tsv');
+    features_file = fullfile(data_path, folder, 'features.tsv');
+    matrix_file = fullfile(data_path, folder, 'matrix.mtx');
+    
+    % Check if files exist
+    if exist(barcodes_file, 'file') ~= 2
+        error('File not found: %s', barcodes_file);
+    end
+    if exist(features_file, 'file') ~= 2
+        error('File not found: %s', features_file);
+    end
+    if exist(matrix_file, 'file') ~= 2
+        error('File not found: %s', matrix_file);
+    end
+    
+    % Load the barcodes (cells)
+    barcodes = readcell(barcodes_file, 'FileType', 'text');
+    
+    % Load the features (genes)
+    features = readcell(features_file, 'FileType', 'text');
+    
+    % Load the matrix file in Matrix Market (MM) format using dlmread
+    % Skip the first 3 lines of the header in the .mtx file
+    raw_data = dlmread(matrix_file, ' ', 3, 0);  % Reading from line 4
+    
+    % Convert raw data into sparse matrix format
+    expression_matrix = spconvert(raw_data);
+    
+    % Check the size of the loaded matrix
+    disp(['Matrix loaded with size: ', num2str(size(expression_matrix))]);
+    
+    % Extract row, column, and value indices if it's sparse
+    [i_matrix, j_matrix, v_matrix] = find(expression_matrix);
+    
+    % Store data for each folder (optional: create a structure)
+    num_cells = max(j_matrix);  % Number of cells (columns)
+    num_genes = max(i_matrix);  % Number of genes (rows)
+    full_matrix = sparse(i_matrix, j_matrix, v_matrix, num_genes, num_cells);
+    
+    % Store the data in the structure using valid field names
+    data.(folder).barcodes = barcodes;
+    data.(folder).features = features;
+    data.(folder).expression_matrix = full_matrix;
+end
+Now that you've successfully loaded the data into MATLAB, the next steps involve processing the data and performing analyses such as PCA (Principal Component Analysis), K-means clustering, and UMAP. Here’s the roadmap for the next steps:
+Next Steps for Analysis
+1. Normalize the Data
+Before performing PCA and clustering, it's important to normalize the data to account for differences in library sizes (total counts per cell).
+% Assuming we are working with the expression matrix from one dataset (e.g., BP_iso)
+expression_matrix = data.BP_iso.expression_matrix;
+
+% Total counts per cell (sum of all genes' expression in each cell)
+total_counts_per_cell = sum(expression_matrix, 1);
+
+% Normalize the data by total counts per cell and log-transform
+normalized_data = log1p(bsxfun(@rdivide, expression_matrix, total_counts_per_cell) * 10000);
+
+% Convert sparse matrix to a full matrix for PCA
+normalized_data_full = full(normalized_data);
+2. Perform PCA (Principal Component Analysis)
+PCA will reduce the dimensionality of your data, making it easier to visualize and analyze.
+% Perform PCA on the normalized data
+% Perform PCA on the normalized data
+[coeff, score, ~, ~, explained] = pca(normalized_data_full', 'NumComponents', 50);  % Transpose the matrix
+
+% Plot the explained variance
+figure;
+plot(cumsum(explained), 'LineWidth', 2);
+xlabel('Number of Components');
+ylabel('Cumulative Explained Variance (%)');
+title('PCA Explained Variance');
+
+% Decide how many components to keep (e.g., components explaining 95% variance)
+explained_variance_threshold = 95;
+cum_explained = cumsum(explained);
+
+% Find the number of components that explain at least 95% of the variance
+num_components = find(cum_explained >= explained_variance_threshold, 1);
+
+% Ensure that num_components doesn't exceed the available number of components
+num_components = min(num_components, size(score, 2));  % Limit to available PCs
+
+% Use the selected number of principal components for downstream analysis
+reduced_data = score(:, 1:num_components);
+Next Steps:
+Once this is fixed and you’ve successfully performed PCA, you can proceed with downstream analyses like K-means clustering and UMAP.
+3. K-means Clustering
+% Perform K-means clustering on the PCA-reduced data
+num_clusters = 10;  % Adjust the number of clusters based on your data
+cluster_idx = kmeans(reduced_data, num_clusters);
+
+% Plot the PCA result colored by clusters
+figure;
+gscatter(reduced_data(:,1), reduced_data(:,2), cluster_idx);
+title('K-means Clustering on PCA-reduced Data');
+xlabel('PC 1');
+ylabel('PC 2');
+4. UMAP (Uniform Manifold Approximation and Projection)
+You can use UMAP for dimensionality reduction and visualization. Here's an example of how to use UMAP via Python within MATLAB:
+% Convert the reduced data to a Python-compatible format
+py_reduced_data = py.numpy.array(reduced_data);
+
+% Import the Python UMAP package
+umap_module = py.importlib.import_module('umap');
+
+% Set UMAP parameters and run UMAP
+reducer = umap_module.UMAP(pyargs('n_neighbors', 15, 'min_dist', 0.1, 'metric', 'euclidean'));
+embedding = reducer.fit_transform(py_reduced_data);
+
+% Convert the UMAP embedding result back to MATLAB
+umap_embedding = double(embedding);
+
+% Plot the UMAP result
+figure;
+scatter(umap_embedding(:,1), umap_embedding(:,2), 10, cluster_idx, 'filled');
+title('UMAP Embedding with K-means Clustering');
+xlabel('UMAP 1');
+ylabel('UMAP 2');
+Steps to Save Data:
+1.	Use save to Store All Workspace Variables: You can save all variables in the current workspace with the save function. This will create a .mat file that contains everything.
+This command saves all variables in the current workspace to my_analysis_data.mat. You can load this file later to restore all variables and data.
+% Save all workspace variables, including large ones, using version 7.3
+save('my_large_data.mat', '-v7.3');
+Save Specific Variables (Optional): If you want to save specific variables (e.g., only the PCA result, UMAP embedding, or clustering data), specify them in the save command:
+% Save specific large variables using version 7.3
+save('my_large_data.mat', 'data', 'reduced_data', 'umap_embedding', 'cluster_idx', '-v7.3');
+Loading the Data:
+When loading the data later, you can use the same load command as before:
+% Load the variables from the .mat file
+load('my_large_data.mat');
+Summary:
+•	Use save('filename.mat', '-v7.3') to save large variables exceeding 2GB.
+•	Use load('filename.mat') to load the data later.
+
