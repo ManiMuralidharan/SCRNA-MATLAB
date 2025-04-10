@@ -1,4 +1,6 @@
-# SCRNA-MATLAB
+# scRNA-seq analysis using MATLAB
+# Author: Muralidharan Mani 
+# Affiliation: University of Wisconsin-Madison
 SCRNA MATLAB based analysis
 this code in MATLAB step-by-step.
 
